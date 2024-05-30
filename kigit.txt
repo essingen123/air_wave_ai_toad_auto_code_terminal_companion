@@ -1,0 +1,4 @@
+#git-reponame, leave next line as random and it will be random word otherwise write a github repo name in
+air_wave_ai_toad_auto_code_terminal_companion
+#public git, y for yes n for no, standard no
+n

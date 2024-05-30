@@ -1,0 +1,8 @@
+{
+    "api_key": "YOUR_API_KEY",
+    "model": "aĩr4i2-omni-470b-8192",
+    "base_url": "https://aĩr.com",
+    "completions_endpoint": "chat/completions",
+    "timeout": 20,
+    "version": "openai/v1"
+}
