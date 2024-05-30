@@ -17,3 +17,6 @@ dist
 
 # Ignore log files
 *.log
+
+config.json
+.env

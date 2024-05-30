@@ -66,7 +66,7 @@ def load_required_env_variables(var_name: str):
     return value
 
 def load_config(api_key=None):
-    config_path = 'config.json'
+    config_path = os.path.join(os.path.dirname(__file__), 'config.json')
     try:
         with open(config_path, 'r') as config_file:
             config = json.load(config_file)
@@ -77,17 +77,13 @@ def load_config(api_key=None):
         print(f"Error: Invalid JSON format in {config_path}: {e}")
         exit(1)
 
-    if not api_key:
-        api_key = config.get('api_key', load_required_env_variables('AIR_TOAD_API_KEY'))
+    api_key = load_required_env_variables('AIR_TOAD_API_KEY')
+    if not api_key or api_key.strip() == "":
+        print("Error: API key is not defined. Please ensure it is set in the environment variable.")
+        exit(1)
 
-    return {
-        'api_key': api_key,
-        'model': config.get('model', 'llama3-70b-8192'),
-        'base_url': config.get('base_url', 'https://api.yourapi.com'),
-        'completions_endpoint': config.get('completions_endpoint', 'chat/completions'),
-        'timeout': config.get('timeout', 20),
-        'version': config.get('version', 'openai/v1')
-    }
+    config['api_key'] = api_key
+    return config
 
 class Client:
     def __init__(self, api_key=None):
@@ -106,13 +102,17 @@ class Client:
         try:
             loading.start()
             response = requests.post(url, headers=self.headers, json=data)
+            response.raise_for_status()
             response = response.json()
             if 'error' in response and 'message' in response['error']:
                 return response['error']['message']
             return response['choices'][0]['message']['content']
+        except requests.exceptions.HTTPError as http_err:
+            print(f"HTTP error occurred: {http_err}")
+            return "HTTP error occurred."
         except Exception as e:
-            print(f"HTTP Error: {e}")
-            raise
+            print(f"An error occurred: {e}")
+            return "An error occurred."
         finally:
             loading.stop()
 
@@ -174,11 +174,25 @@ class Text:
 
 def ensure_bashrc_function():
     bashrc_path = os.path.expanduser("~/.bashrc")
-    function_definition = '''function q() {
-    last_command=$(history | tail -n 2 | head -n 1 | sed "s/^[ ]*[0-9]*[ ]*//")
-    last_output=$(eval "$last_command" 2>&1)
-    python /home/koji/Desktop/ai_toad_terminal_kilian/ai_toad_terminal_kilian.py "$last_command" "$last_output"
-}'''
+    script_path = os.path.abspath(__file__)
+    function_definition = f'''function q() {{
+    echo "Running AI Toad Terminal Companion..."
+    if [ "$1" == "c" ]; then
+        python {script_path} --conversation
+    elif [ "$1" == "ciq" ]; then
+        python {script_path} --conversation --ciq
+    elif [ "$1" == "c" ] && [ "$2" == "ciq" ]; then
+        python {script_path} --conversation --ciq
+    else
+        last_command=$(history | tail -n 2 | head -n 1 | sed "s/^[ ]*[0-9]*[ ]*//")
+        last_output=$(eval "$last_command" 2>&1)
+        if [ "$1" == "ciq" ]; then
+            python {script_path} "$last_command" "$last_output" --ciq
+        else
+            python {script_path} "$last_command" "$last_output"
+        fi
+    fi
+}}'''
     if os.path.exists(bashrc_path):
         with open(bashrc_path, 'r') as file:
             bashrc_content = file.read()
@@ -197,19 +211,16 @@ def ensure_bashrc_function():
 def main():
     ensure_bashrc_function()
 
-    parser = argparse.ArgumentParser(description="Toolkittikit")
+    parser = argparse.ArgumentParser(description="AI Toad Terminal Companion")
     parser.add_argument('last_command', type=str, nargs='?', help='Last executed command')
     parser.add_argument('last_output', type=str, nargs='?', help='Output of the last executed command')
+    parser.add_argument('--conversation', action='store_true', help='Enable conversation mode')
     parser.add_argument('--ciq', action='store_true', help='Enable coding improvement query preparation')
     args = parser.parse_args()
 
     text = Text()
 
-    if args.last_command and args.last_output:
-        prompt = f"Command: {args.last_command}\nOutput: {args.last_output}"
-        response = text.run(api_key=None, prompt=prompt, ciq=args.ciq)
-        print(f"Assistant: {response}")
-    else:
+    if args.conversation:
         print("Welcome to the ai toad auto code terminal companion. Type 'exit' to quit.")
         while True:
             prompt = input("You: ")
@@ -218,7 +229,13 @@ def main():
                 break
             response = text.run(api_key=None, prompt=prompt, ciq=args.ciq)
             print(f"Assistant: {response}")
-    print("Thank you for a lit on the super toad starterkit. Have a great day!")
+        print("Thank you for using the AI toad auto code terminal companion. Have a great day!")
+    elif args.last_command and args.last_output:
+        prompt = f"Command: {args.last_command}\nOutput: {args.last_output}"
+        response = text.run(api_key=None, prompt=prompt, ciq=args.ciq)
+        print(f"Assistant: {response}")
+    else:
+        print("Invalid usage. Please provide the last command and output or use the --conversation flag.")
 
 if __name__ == "__main__":
     main()
