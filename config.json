@@ -1,7 +1,1 @@
-{
-    "model": "llama3-70b-8192",
-    "base_url": "https://api.groq.com",
-    "completions_endpoint": "chat/completions",
-    "timeout": 20,
-    "version": "openai/v1"
-}
+
